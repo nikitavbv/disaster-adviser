@@ -17,9 +17,10 @@ object Application {
       PdcNotificationCenter.monitorEvents().map(_.toDisaster)
     ).reduce((a, b) => a merge b).runForeach(println)*/
 
-    /*new GoogleCalendarClient(sys.env("GOOGLE_CALENDAR_TOKEN"))
+    new GoogleCalendarClient(sys.env("GOOGLE_CALENDAR_TOKEN"))
       .allEvents
-      .runForeach(println)*/
+      .runForeach(println)
+      .onComplete(println)
 
     println("Hello, World!")
   }
