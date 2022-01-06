@@ -15,3 +15,6 @@ libraryDependencies += "com.typesafe.akka" %% "akka-stream" % AkkaVersion
 libraryDependencies += "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion
 libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion
 libraryDependencies += "com.typesafe.akka" %% "akka-http-xml" % AkkaHttpVersion
+
+// google calendar
+libraryDependencies += "com.google.apis" % "google-api-services-calendar" % "v3-rev411-1.25.0"

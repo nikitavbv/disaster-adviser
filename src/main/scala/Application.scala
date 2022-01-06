@@ -1,7 +1,9 @@
 package com.nikitavbv.disaster
 
+import notifcenter.{EonetNotificationCenter, PdcNotificationCenter}
+
 import akka.actor.ActorSystem
-import com.nikitavbv.disaster.notifcenter.{EonetNotificationCenter, PdcNotificationCenter}
+import com.nikitavbv.disaster.calendar.GoogleCalendarClient
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -10,10 +12,14 @@ object Application {
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
   def main(args: Array[String]) = {
-    Seq(
+   /*Seq(
       EonetNotificationCenter.monitorEvents().map(_.toDisaster),
       PdcNotificationCenter.monitorEvents().map(_.toDisaster)
-    ).reduce((a, b) => a.merge(b)).runForeach(println)
+    ).reduce((a, b) => a merge b).runForeach(println)*/
+
+    /*new GoogleCalendarClient(sys.env("GOOGLE_CALENDAR_TOKEN"))
+      .allEvents
+      .runForeach(println)*/
 
     println("Hello, World!")
   }

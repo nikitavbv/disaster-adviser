@@ -2,17 +2,17 @@ package com.nikitavbv.disaster
 package notifcenter
 
 import Application._
+import model.{Disaster, DisasterLocation}
 
 import akka.NotUsed
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.HttpMethods.GET
 import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.unmarshalling.Unmarshal
-import spray.json.DefaultJsonProtocol._
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.headers.RawHeader
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.scaladsl.Source
-import com.nikitavbv.disaster.model.{Disaster, DisasterLocation}
+import spray.json.DefaultJsonProtocol._
 import spray.json.RootJsonFormat
 
 import scala.collection.mutable

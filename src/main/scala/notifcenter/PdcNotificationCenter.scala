@@ -2,15 +2,14 @@ package com.nikitavbv.disaster
 package notifcenter
 
 import Application._
+import model.{Disaster, DisasterLocation}
 
 import akka.NotUsed
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport.defaultNodeSeqUnmarshaller
 import akka.http.scaladsl.model.HttpMethods.GET
 import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.scaladsl.Source
-import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport.defaultNodeSeqUnmarshaller
-import com.nikitavbv.disaster.model.{Disaster, DisasterLocation}
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
