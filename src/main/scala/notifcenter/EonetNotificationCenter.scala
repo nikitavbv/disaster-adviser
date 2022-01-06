@@ -12,6 +12,7 @@ import spray.json.DefaultJsonProtocol._
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.stream.scaladsl.Source
+import com.nikitavbv.disaster.model.{Disaster, DisasterLocation}
 import spray.json.RootJsonFormat
 
 import scala.collection.mutable
@@ -19,9 +20,19 @@ import scala.concurrent.duration.DurationInt
 
 case class EonetResponse(title: String, events: Seq[EonetEvent])
 
-case class EonetEvent(id: String, title: String, geometry: Seq[EonetEventGeometry])
+case class EonetEvent(id: String, title: String, geometry: Seq[EonetEventGeometry]) {
 
-case class EonetEventGeometry(coordinates: (Double, Double))
+  def toDisaster: Disaster = Disaster(
+    s"EONET-${this.id}",
+    this.title,
+    this.geometry.map(_.toDisasterLocation)
+  )
+}
+
+case class EonetEventGeometry(coordinates: (Double, Double)) {
+
+  def toDisasterLocation: DisasterLocation = DisasterLocation(this.coordinates._1, this.coordinates._2)
+}
 
 object EonetNotificationCenter {
   implicit val eventGeometryFormat: RootJsonFormat[EonetEventGeometry] = jsonFormat1(EonetEventGeometry)
@@ -33,7 +44,7 @@ object EonetNotificationCenter {
 
     Source.tick(
       1.second,
-      10.seconds,
+      60.seconds,
       ()
     )
       .flatMapConcat(_ => loadEvents())

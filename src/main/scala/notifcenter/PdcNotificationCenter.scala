@@ -10,13 +10,21 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.scaladsl.Source
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport.defaultNodeSeqUnmarshaller
+import com.nikitavbv.disaster.model.{Disaster, DisasterLocation}
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.xml.NodeSeq
 
 case class PdcResponse(hazardBeans: Seq[PdcHazardBean])
-case class PdcHazardBean(hazardId: String, hazardName: String, latitude: Double, longitude: Double)
+case class PdcHazardBean(hazardId: String, hazardName: String, latitude: Double, longitude: Double) {
+
+  def toDisaster: Disaster = Disaster(
+    s"PDC-${this.hazardId}",
+    this.hazardName,
+    Seq(DisasterLocation(this.latitude, this.longitude))
+  )
+}
 
 object PdcNotificationCenter {
 
@@ -25,7 +33,7 @@ object PdcNotificationCenter {
 
     Source.tick(
       1.second,
-      10.seconds,
+      60.seconds,
       ()
     )
       .flatMapConcat(_ => loadEvents())
