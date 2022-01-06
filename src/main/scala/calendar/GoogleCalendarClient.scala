@@ -12,6 +12,7 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.services.calendar.Calendar
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.calendar.model.Event
+import com.nikitavbv.disaster.Constants.applicationName
 import com.nikitavbv.disaster.model.CalendarEvent
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
@@ -22,7 +23,8 @@ class GoogleCalendarClient(val accessToken: String) {
     GoogleNetHttpTransport.newTrustedTransport(),
     JacksonFactory.getDefaultInstance,
     new GoogleCredential().setAccessToken(accessToken)
-  ).build()
+  ).setApplicationName(applicationName)
+    .build()
 
   def allEvents: Source[CalendarEvent, NotUsed] = {
     calendars.map(_.getId).flatMapConcat(events)

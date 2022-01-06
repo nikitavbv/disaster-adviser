@@ -16,6 +16,7 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.server.Directives
 import spray.json._
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContextExecutor
 
@@ -29,7 +30,6 @@ object Application {
     EonetNotificationCenter.monitorEvents().map(_.toDisaster),
     PdcNotificationCenter.monitorEvents().map(_.toDisaster)
   ).reduce((a, b) => a merge b)
-    .alsoTo(Sink.foreach(persistedDisasters.addOne))
 
   val port = 8080
 
@@ -39,27 +39,33 @@ object Application {
         handleWebSocketMessages(handleWebsocket())
       },
       get {
-        new GoogleCalendarClient(sys.env("GOOGLE_CALENDAR_TOKEN"))
-          .allEvents
-          .filter(_.isUpcoming)
-          .flatMapConcat(event => {
-            val location = LocationParser.fromText(event.location)
-            if (location.isEmpty) {
-              Source.empty
-            } else {
-              allDisasters
-                .filter(disaster => disaster.isCloseTo(location.get))
-                .zipWith(Source.repeat(event)) { (a, b) => (a, b) }
-            }
-          })
-          .runForeach(println)
-          .onComplete(println)
+        try {
+          new GoogleCalendarClient(sys.env("GOOGLE_CALENDAR_TOKEN"))
+            .allEvents
+            .filter(_.isUpcoming)
+            .flatMapConcat(event => {
+              val location = LocationParser.fromText(event.location)
+              if (location.isEmpty) {
+                Source.empty
+              } else {
+                persistedDisastersSource
+                  .filter(disaster => disaster isCloseTo location.get)
+                  .zipWith(Source.repeat(event)) { (a, b) => (a, b) }
+              }
+            })
+            .runForeach(println)
+            .onComplete(println)
+        } catch {
+          case e: Exception => println(e)
+        }
         complete("hello")
       }
     )
   }
 
-  def allDisasters: Source[Disaster, NotUsed] = Source.fromIterator(() => persistedDisasters.iterator).merge(disasterSource)
+  def persistedDisastersSource: Source[Disaster, NotUsed] = Source.fromIterator(() => persistedDisasters.iterator)
+
+  def allDisasters: Source[Disaster, NotUsed] = persistedDisastersSource merge disasterSource
 
   def handleWebsocket(): Flow[Message, Message, Any] = {
     Flow[Disaster]
@@ -71,5 +77,6 @@ object Application {
   Http().newServerAt("0.0.0.0", port).bindFlow(routes)
 
   def main(args: Array[String]): Unit = {
+    disasterSource.runForeach(persistedDisasters.addOne)
   }
 }

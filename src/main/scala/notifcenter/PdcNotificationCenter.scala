@@ -44,8 +44,7 @@ object PdcNotificationCenter {
       ()
     )
       .flatMapConcat(_ => loadEvents())
-      .filter(event => !processedEvents.contains(event.hazardId))
-      .wireTap(event => processedEvents.add(event.hazardId))
+      .filter(event => processedEvents.add(event.hazardId))
       .mapMaterializedValue(_ => NotUsed.notUsed())
   }
 

@@ -50,8 +50,7 @@ object EonetNotificationCenter {
       ()
     )
       .flatMapConcat(_ => loadEvents())
-      .filter(event => !processedEvents.contains(event.id))
-      .wireTap(event => processedEvents.add(event.id))
+      .filter(event => processedEvents.add(event.id))
       .mapMaterializedValue(_ => NotUsed.notUsed())
   }
 

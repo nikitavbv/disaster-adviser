@@ -7,7 +7,22 @@ import spray.json.RootJsonFormat
 case class Location(latitude: Double,
                     longitude: Double) {
 
-  def isCloseTo(other: Location): Boolean = true // TODO: implement this
+  private val AVERAGE_RADIUS_OF_EARTH_KM = 6371
+
+  def distanceTo(other: Location): Double = {
+    val latDistance = Math.toRadians(this.latitude - other.latitude)
+    val lngDistance = Math.toRadians(this.longitude - other.longitude)
+    val sinLat = Math.sin(latDistance / 2)
+    val sinLng = Math.sin(lngDistance / 2)
+    val a = sinLat * sinLat +
+      (Math.cos(Math.toRadians(this.latitude)) *
+        Math.cos(Math.toRadians(other.longitude)) *
+        sinLng * sinLng)
+    val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    AVERAGE_RADIUS_OF_EARTH_KM * c
+  }
+
+  def isCloseTo(other: Location): Boolean = distanceTo(other) < 250.0 // TODO: implement this
 }
 
 
