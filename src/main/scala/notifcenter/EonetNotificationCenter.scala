@@ -2,7 +2,7 @@ package com.nikitavbv.disaster
 package notifcenter
 
 import Application._
-import model.{Disaster, DisasterLocation}
+import model.{Disaster, Location}
 
 import akka.NotUsed
 import akka.http.scaladsl.Http
@@ -25,13 +25,15 @@ case class EonetEvent(id: String, title: String, geometry: Seq[EonetEventGeometr
   def toDisaster: Disaster = Disaster(
     s"EONET-${this.id}",
     this.title,
-    this.geometry.map(_.toDisasterLocation)
+    this.geometry.map(_.toLocation),
+    None,
+    None
   )
 }
 
 case class EonetEventGeometry(coordinates: (Double, Double)) {
 
-  def toDisasterLocation: DisasterLocation = DisasterLocation(this.coordinates._1, this.coordinates._2)
+  def toLocation: Location = Location(this.coordinates._1, this.coordinates._2)
 }
 
 object EonetNotificationCenter {

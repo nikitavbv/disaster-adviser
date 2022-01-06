@@ -6,13 +6,14 @@ import model.DisasterFormat._
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
-import akka.http.scaladsl.server.Directives.{concat, get, getFromResource, getFromResourceDirectory, handleWebSocketMessages, path, pathSingleSlash}
+import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.{Http, server}
 import akka.stream.Attributes
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.nikitavbv.disaster.calendar.GoogleCalendarClient
-import com.nikitavbv.disaster.model.{Disaster, DisasterLocation}
+import com.nikitavbv.disaster.model.{Disaster, Location, LocationParser}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import akka.http.scaladsl.server.Directives
 import spray.json._
 
 import scala.collection.mutable.ListBuffer
@@ -36,26 +37,39 @@ object Application {
     concat(
       path("disasters") {
         handleWebSocketMessages(handleWebsocket())
+      },
+      get {
+        new GoogleCalendarClient(sys.env("GOOGLE_CALENDAR_TOKEN"))
+          .allEvents
+          .filter(_.isUpcoming)
+          .flatMapConcat(event => {
+            val location = LocationParser.fromText(event.location)
+            if (location.isEmpty) {
+              Source.empty
+            } else {
+              allDisasters
+                .filter(disaster => disaster.isCloseTo(location.get))
+                .zipWith(Source.repeat(event)) { (a, b) => (a, b) }
+            }
+          })
+          .runForeach(println)
+          .onComplete(println)
+        complete("hello")
       }
     )
   }
 
+  def allDisasters: Source[Disaster, NotUsed] = Source.fromIterator(() => persistedDisasters.iterator).merge(disasterSource)
+
   def handleWebsocket(): Flow[Message, Message, Any] = {
     Flow[Disaster]
-      .merge(Source.fromIterator(() => persistedDisasters.iterator).merge(disasterSource))
+      .merge(allDisasters)
       .map(v => TextMessage(v.toJson.toString))
       .asInstanceOf[Flow[Message, Message, Any]]
   }
 
   Http().newServerAt("0.0.0.0", port).bindFlow(routes)
 
-  def main(args: Array[String]) = {
-    /*new GoogleCalendarClient(sys.env("GOOGLE_CALENDAR_TOKEN"))
-      .allEvents
-      .runForeach(println)
-      .onComplete(println)*/
-
-    println(s"server started at port ${port}")
-    ()
+  def main(args: Array[String]): Unit = {
   }
 }
