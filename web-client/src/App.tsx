@@ -1,26 +1,31 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { createTheme, ThemeProvider } from '@material-ui/core/styles';
+import { HomePage } from './pages';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+import './index.css';
+
+const theme = createTheme({
+    palette: {
+        primary: {
+            main: '#202125',
+        },
+    },
+});
+
+const App = () => {
+    const routes = [
+        <Route key='/' path='/' element={<HomePage />} />
+    ];
+
+    return (
+        <ThemeProvider theme={theme}>
+            <BrowserRouter>
+                <Routes>
+                    { routes }
+                </Routes>
+            </BrowserRouter>
+        </ThemeProvider>
+    );
+};
 
 export default App;
