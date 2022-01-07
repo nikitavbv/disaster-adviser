@@ -7,9 +7,9 @@ import spray.json.RootJsonFormat
 case class Location(latitude: Double,
                     longitude: Double) {
 
-  private val AVERAGE_RADIUS_OF_EARTH_KM = 6371
-
   def distanceTo(other: Location): Double = {
+    val AVERAGE_RADIUS_OF_EARTH_KM = 6371
+
     val latDistance = Math.toRadians(this.latitude - other.latitude)
     val lngDistance = Math.toRadians(this.longitude - other.longitude)
     val sinLat = Math.sin(latDistance / 2)

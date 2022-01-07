@@ -35,7 +35,7 @@ object Application {
 
   val routes: server.Route = get {
     concat(
-      path("disasters") {
+      path("ws") {
         handleWebSocketMessages(handleWebsocket())
       },
       get {
