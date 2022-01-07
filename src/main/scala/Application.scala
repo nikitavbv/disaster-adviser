@@ -12,7 +12,7 @@ import akka.http.scaladsl.{Http, server}
 import akka.stream.Attributes
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.nikitavbv.disaster.calendar.GoogleCalendarClient
-import com.nikitavbv.disaster.model.{Disaster, Location, LocationParser, WebSocketMessage, WebSocketMessageWithAction}
+import com.nikitavbv.disaster.model.{CalendarEventMessage, Disaster, EventSafetyLevel, Location, LocationParser, WebSocketMessage, WebSocketMessageWithAction}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.unmarshalling.Unmarshal
@@ -42,49 +42,6 @@ object Application {
     concat(
       path("ws") {
         handleWebSocketMessages(handleWebsocket())
-      },
-      get {
-        try {
-          persistedDisastersSource
-            .groupBy(10000, _.locationCluster)
-            .map(disaster => (disaster.locationCluster, 1))
-            .reduce((a, b) => (a._1, a._2 + b._2))
-            .mergeSubstreams
-            .runForeach(println)
-            .onComplete(_ => println("________________________-"))
-
-          /*allDisasters
-            .groupBy(Int.MaxValue, _.locationCluster)
-            .map(disaster => (disaster.locationCluster, 1))
-            .reduce((a, b) => (a._1, a._2 + b._2))
-            .mergeSubstreams
-            .runForeach(println)
-            .onComplete(println)*/
-        } catch {
-          case e: Exception => println(e)
-        }
-
-        /*try {
-          new GoogleCalendarClient(sys.env("GOOGLE_CALENDAR_TOKEN"))
-            .allEvents
-            .filter(_.isUpcoming)
-            .flatMapConcat(event => {
-              val location = LocationParser.fromText(event.location)
-              if (location.isEmpty) {
-                Source.empty
-              } else {
-                persistedDisastersSource
-                  .filter(disaster => disaster isCloseTo location.get)
-                  .zipWith(Source.repeat(event)) { (a, b) => (a, b) }
-              }
-            })
-            .runForeach(println)
-            .onComplete(println)
-        } catch {
-          case e: Exception => println(e)
-        }*/
-
-        complete("hello")
       }
     )
   }
@@ -93,8 +50,16 @@ object Application {
 
   def allDisasters: Source[Disaster, NotUsed] = persistedDisastersSource merge disasterSource
 
+  def hotPointsCenters: Source[Location, NotUsed] = Source(hotPoints.toSeq
+      .sortBy(k => k._2)
+      .reverse
+      .slice(0, 5)
+  ).map(point => persistedDisasters
+    .filter(disaster => disaster.locationCluster == point._1)
+    .map(_.center)
+    .reduce((a, b) => a centerBetween b))
+
   def handleWebsocket(): Flow[Message, Message, Any] = {
-    var googleCalendarClient: Option[GoogleCalendarClient] = None
     val hotPointsSource = Source.tick(
       10.seconds,
       60.seconds,
@@ -114,11 +79,26 @@ object Application {
     Flow[Message]
       .map(_.asTextMessage.getStrictText)
       .flatMapConcat(message => Source.future(Unmarshal(message).to[WebSocketMessage]))
-      .wireTap(message => {
-        googleCalendarClient = Some(new GoogleCalendarClient(message.token))
-        // TODO: finish this
+      .flatMapConcat(message => {
+        new GoogleCalendarClient(message.token)
+          .allEvents
+          .filter(_.isUpcoming)
+          .flatMapConcat(event => {
+            val location = LocationParser.fromText(event.location)
+            if (location.isEmpty) {
+              Source.empty
+            } else {
+              persistedDisastersSource
+                .filter(disaster => disaster isCloseTo location.get)
+                .map(_ => EventSafetyLevel.WithinDisaster)
+                .orElse(hotPointsCenters.filter(center => center isCloseTo location.get)
+                  .map(_ => EventSafetyLevel.WithinHotPoint))
+                .orElse(Source.single(EventSafetyLevel.Ok))
+                .map(status => CalendarEventMessage(event.title, event.start, status))
+                .map(msg => TextMessage(WebSocketMessageWithAction("calendar_event", msg).toJson.toString))
+            }
+          })
       })
-      .flatMapConcat(_ => Source.empty[TextMessage])
       .merge(
         allDisasters.map(v => TextMessage(WebSocketMessageWithAction("new_disaster", v).toJson.toString))
       )

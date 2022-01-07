@@ -33,7 +33,7 @@ case class EonetEvent(id: String, title: String, geometry: Seq[EonetEventGeometr
 
 case class EonetEventGeometry(coordinates: (Double, Double)) {
 
-  def toLocation: Location = Location(this.coordinates._1, this.coordinates._2)
+  def toLocation: Location = Location(this.coordinates._2, this.coordinates._1)
 }
 
 object EonetNotificationCenter {

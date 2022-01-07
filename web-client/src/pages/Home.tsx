@@ -1,5 +1,15 @@
 import {useEffect, useReducer, useRef} from 'react';
-import {Button, Grid, Card, CardContent, Typography, CircularProgress} from '@mui/material';
+import {
+    Button,
+    Grid,
+    Card,
+    CardContent,
+    Typography,
+    CircularProgress,
+    TableContainer,
+    Paper,
+    TableCell, Table, TableRow, TableHead, TableBody
+} from '@mui/material';
 import moment from 'moment';
 import {getGoogleToken} from '../utils';
 
@@ -16,6 +26,14 @@ type Location = {
     longitude: number,
 };
 
+type CalendarEvent = {
+    event: string,
+    start: string,
+    safetyLevel: SafetyLevel,
+}
+
+type SafetyLevel = 'Ok' | 'WithinDisaster' | 'WithinHotPoint';
+
 type WebSocketMessage = {
     action: 'set_calendar_token',
     token: string,
@@ -27,11 +45,16 @@ type IncomingWebSocketMessage = {
 } | {
     action: 'hot_points',
     data: [Location, number][],
+} | {
+    action: 'calendar_event',
+    data: CalendarEvent,
 };
 
 type AppState = {
     disasters: Disaster[],
     hotPoints: [Location, number][],
+    events: CalendarEvent[],
+    calendarConnected: boolean,
 };
 
 type Action = { type: 'CLEAR' } | {
@@ -40,11 +63,18 @@ type Action = { type: 'CLEAR' } | {
 } | {
     type: 'SET_HOT_POINTS',
     hotPoints: [Location, number][],
+} | {
+    type: 'CALENDAR_CONNECTED',
+} | {
+    type: 'ADD_CALENDAR_EVENT',
+    event: CalendarEvent,
 };
 
 const initialState: AppState = {
     disasters: [],
     hotPoints: [],
+    events: [],
+    calendarConnected: false,
 };
 
 export const HomePage = () => {
@@ -52,6 +82,7 @@ export const HomePage = () => {
     const [state, dispatch] = useReducer(reducer, initialState);
 
     const connectToGoogleCalendar = async () => {
+        dispatch({ type: 'CALENDAR_CONNECTED' });
         const token = await getGoogleToken();
 
         if (ws.current !== null) {
@@ -69,6 +100,8 @@ export const HomePage = () => {
                 dispatch({ type: 'ADD_DISASTER', disaster: message.data });
             } else if (message.action === 'hot_points') {
                 dispatch({ type: 'SET_HOT_POINTS', hotPoints: message.data });
+            } else if (message.action === 'calendar_event') {
+                dispatch({ type: 'ADD_CALENDAR_EVENT', event: message.data });
             }
         };
 
@@ -86,6 +119,10 @@ export const HomePage = () => {
         </Grid>
     );
 
+    const eventsTable = state.calendarConnected === false ? (
+        <Button onClick={connectToGoogleCalendar} variant='contained'>Connect to Google Calendar</Button>
+    ) : (state.events.length === 0 ? (<CircularProgress />) : (<CalendarEventsTable events={state.events} />));
+
     return (
         <Grid container spacing={2}>
             <Grid item xs={3}>
@@ -101,7 +138,7 @@ export const HomePage = () => {
                 { state.hotPoints.length === 0 ? (<CircularProgress />) : hotPointsCards }
 
                 <Typography variant='h1' sx={{fontSize: 26}} style={{padding: '8px 0'}}>Your events</Typography>
-                <Button onClick={connectToGoogleCalendar} variant='contained'>Connect to Google Calendar</Button>
+                { eventsTable }
             </Grid>
         </Grid>
     );
@@ -140,6 +177,59 @@ const HotPointCard = (props: { hotPoint: [Location, number] }) => {
     );
 }
 
+const CalendarEventsTable = (props: { events: CalendarEvent[] }) => {
+    const sortedEvents = props.events.sort((a, b) => {
+        const aDate = Date.parse(a.start);
+        const bDate = Date.parse(b.start);
+        return bDate - aDate;
+    });
+
+    return (
+        <TableContainer component={Paper}>
+            <Table>
+                <TableHead>
+                    <TableRow>
+                        <TableCell>Event</TableCell>
+                        <TableCell>Time remaining</TableCell>
+                        <TableCell>Safety level</TableCell>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    { sortedEvents.map(event => (
+                        <TableRow>
+                            <TableCell>{event.event}</TableCell>
+                            <TableCell>{moment(event.start).fromNow()}</TableCell>
+                            <TableCell style={{ color: safetyLevelToColor(event.safetyLevel) }}>{ safetyLevelToText(event.safetyLevel) }</TableCell>
+                        </TableRow>
+                    )) }
+                </TableBody>
+            </Table>
+        </TableContainer>
+    );
+};
+
+const safetyLevelToColor = (safetyLevel: SafetyLevel): string => {
+    switch (safetyLevel) {
+        case 'Ok':
+            return 'green';
+        case 'WithinDisaster':
+            return 'red';
+        case 'WithinHotPoint':
+            return 'yellow';
+    }
+}
+
+const safetyLevelToText = (safetyLevel: SafetyLevel): string => {
+    switch (safetyLevel) {
+        case 'Ok':
+            return 'ok';
+        case 'WithinDisaster':
+            return 'within disaster';
+        case 'WithinHotPoint':
+            return 'within hot point';
+    }
+};
+
 const reducer = (state: AppState, action: Action) => {
     switch (action.type) {
         case 'CLEAR':
@@ -156,6 +246,19 @@ const reducer = (state: AppState, action: Action) => {
             return {
                 ...state,
                 hotPoints: action.hotPoints,
+            };
+        case 'CALENDAR_CONNECTED':
+            return {
+                ...state,
+                calendarConnected: true,
+            };
+        case 'ADD_CALENDAR_EVENT':
+            return {
+                ...state,
+                events: [
+                    ...state.events,
+                    action.event,
+                ]
             };
         default:
             return state;
