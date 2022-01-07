@@ -23,8 +23,14 @@ case class Location(latitude: Double,
   }
 
   def isCloseTo(other: Location): Boolean = distanceTo(other) < 250.0 // TODO: implement this
-}
 
+  def centerBetween(other: Location): Location = Location(
+    (this.latitude + other.latitude) / 2,
+    (this.longitude + other.longitude) / 2
+  )
+
+  def locationCluster: String = s"${(latitude * 0.4).round}:${(longitude * 0.4).round}"
+}
 
 object LocationParser {
 

@@ -15,6 +15,10 @@ case class Disaster(id: String,
                     endDate: Option[Instant]) {
 
   def isCloseTo(location: Location): Boolean = this.location.exists(_.isCloseTo(location))
+
+  def center: Location = this.location.reduce((a, b) => a centerBetween b)
+
+  def locationCluster: String = this.center.locationCluster
 }
 
 object DisasterFormat {

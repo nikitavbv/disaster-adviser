@@ -1,5 +1,5 @@
 import {useEffect, useReducer, useRef} from 'react';
-import {Button, Grid, Card, CardContent, Typography} from '@mui/material';
+import {Button, Grid, Card, CardContent, Typography, CircularProgress} from '@mui/material';
 import moment from 'moment';
 import {getGoogleToken} from '../utils';
 
@@ -11,40 +11,80 @@ type Disaster = {
     endDate: string | undefined,
 };
 
-type AppState = {
-    disasters: Disaster[],
-};
-
 type Location = {
     latitude: number,
     longitude: number,
 };
 
-type Action = {
+type WebSocketMessage = {
+    action: 'set_calendar_token',
+    token: string,
+};
+
+type IncomingWebSocketMessage = {
+    action: 'new_disaster',
+    data: Disaster,
+} | {
+    action: 'hot_points',
+    data: [Location, number][],
+};
+
+type AppState = {
+    disasters: Disaster[],
+    hotPoints: [Location, number][],
+};
+
+type Action = { type: 'CLEAR' } | {
     type: 'ADD_DISASTER',
     disaster: Disaster,
-} | { type: 'CLEAR' };
+} | {
+    type: 'SET_HOT_POINTS',
+    hotPoints: [Location, number][],
+};
 
 const initialState: AppState = {
     disasters: [],
+    hotPoints: [],
 };
 
 export const HomePage = () => {
     const ws = useRef<WebSocket | null>(null);
     const [state, dispatch] = useReducer(reducer, initialState);
 
+    const connectToGoogleCalendar = async () => {
+        const token = await getGoogleToken();
+
+        if (ws.current !== null) {
+            ws.current.send(JSON.stringify({ action: 'set_calendar_token', token } as WebSocketMessage));
+        }
+    };
+
     useEffect(() => {
         dispatch({ type: 'CLEAR' });
 
         ws.current = new WebSocket('ws://localhost:8080/ws');
         ws.current.onmessage = msg => {
-            const data = JSON.parse(msg.data);
-            dispatch({ type: 'ADD_DISASTER', disaster: data });
+            const message = JSON.parse(msg.data) as IncomingWebSocketMessage;
+            if (message.action === 'new_disaster') {
+                dispatch({ type: 'ADD_DISASTER', disaster: message.data });
+            } else if (message.action === 'hot_points') {
+                dispatch({ type: 'SET_HOT_POINTS', hotPoints: message.data });
+            }
         };
 
         const wsCurrent = ws.current;
         return () => wsCurrent.close();
     }, []);
+
+    const hotPointsCards = (
+        <Grid container spacing={1}>
+            { state.hotPoints.map(hotPoint => (
+                <Grid item xs={3}>
+                    <HotPointCard hotPoint={hotPoint} />
+                </Grid>
+            )) }
+        </Grid>
+    );
 
     return (
         <Grid container spacing={2}>
@@ -57,14 +97,17 @@ export const HomePage = () => {
                 }).map(disaster => <DisasterCard key={disaster.id} disaster={disaster} />) }
             </Grid>
             <Grid item xs={9}>
+                <Typography variant='h1' sx={{fontSize: 26}} style={{padding: '8px 0'}}>Hot Points</Typography>
+                { state.hotPoints.length === 0 ? (<CircularProgress />) : hotPointsCards }
+
                 <Typography variant='h1' sx={{fontSize: 26}} style={{padding: '8px 0'}}>Your events</Typography>
-                <Button onClick={() => getGoogleToken().then(console.log)} variant='contained'>Connect to Google Calendar</Button>
+                <Button onClick={connectToGoogleCalendar} variant='contained'>Connect to Google Calendar</Button>
             </Grid>
         </Grid>
     );
 };
 
-export const DisasterCard = (props: { disaster: Disaster }) => {
+const DisasterCard = (props: { disaster: Disaster }) => {
     return (
         <Card style={{ marginBottom: '8px' }}>
             <CardContent>
@@ -82,6 +125,21 @@ export const DisasterCard = (props: { disaster: Disaster }) => {
     );
 }
 
+const HotPointCard = (props: { hotPoint: [Location, number] }) => {
+    return (
+        <Card style={{ marginBottom: '8px' }}>
+            <CardContent>
+                <Typography variant='h5' component='div' sx={{ fontSize: 18 }}>
+                    { props.hotPoint[0].latitude }, { props.hotPoint[0].longitude }
+                </Typography>
+                <Typography variant='h5' component='div' sx={{ fontSize: 14 }}>
+                    { props.hotPoint[1] } disasters observed here
+                </Typography>
+            </CardContent>
+        </Card>
+    );
+}
+
 const reducer = (state: AppState, action: Action) => {
     switch (action.type) {
         case 'CLEAR':
@@ -93,6 +151,11 @@ const reducer = (state: AppState, action: Action) => {
                     action.disaster,
                     ...state.disasters
                 ],
+            };
+        case 'SET_HOT_POINTS':
+            return {
+                ...state,
+                hotPoints: action.hotPoints,
             };
         default:
             return state;
