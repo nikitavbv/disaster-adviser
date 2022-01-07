@@ -53,7 +53,7 @@ object Application {
   def hotPointsCenters: Source[Location, NotUsed] = Source(hotPoints.toSeq
       .sortBy(k => k._2)
       .reverse
-      .slice(0, 5)
+      .slice(0, 10)
   ).map(point => persistedDisasters
     .filter(disaster => disaster.locationCluster == point._1)
     .map(_.center)
@@ -69,7 +69,7 @@ object Application {
         hotPoints.toSeq
           .sortBy(k => k._2)
           .reverse
-          .slice(0, 5)
+          .slice(0, 10)
           .map(point => (persistedDisasters
             .filter(disaster => disaster.locationCluster == point._1)
             .map(_.center)
@@ -88,12 +88,13 @@ object Application {
             if (location.isEmpty) {
               Source.empty
             } else {
-              persistedDisastersSource
+              Source.future(persistedDisastersSource
                 .filter(disaster => disaster isCloseTo location.get)
                 .map(_ => EventSafetyLevel.WithinDisaster)
-                .orElse(hotPointsCenters.filter(center => center isCloseTo location.get)
-                  .map(_ => EventSafetyLevel.WithinHotPoint))
                 .orElse(Source.single(EventSafetyLevel.Ok))
+                .orElse(hotPointsCenters.filter(center => center isCloseTo location.get)
+                    .map(_ => EventSafetyLevel.WithinHotPoint))
+                .runWith(Sink.head))
                 .map(status => CalendarEventMessage(event.title, event.start, status))
                 .map(msg => TextMessage(WebSocketMessageWithAction("calendar_event", msg).toJson.toString))
             }

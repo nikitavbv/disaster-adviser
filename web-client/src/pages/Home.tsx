@@ -181,7 +181,7 @@ const CalendarEventsTable = (props: { events: CalendarEvent[] }) => {
     const sortedEvents = props.events.sort((a, b) => {
         const aDate = Date.parse(a.start);
         const bDate = Date.parse(b.start);
-        return bDate - aDate;
+        return aDate - bDate;
     });
 
     return (
