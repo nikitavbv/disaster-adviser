@@ -1,12 +1,12 @@
 package com.nikitavbv.disaster
 package model
 
-import DisasterFormat._
-import LocationFormat._
-import EventSafetyLevelFormat._
+import model.DisasterFormat._
+import model.EventSafetyLevelFormat._
+import model.LocationFormat._
 
-import spray.json.{JsValue, RootJsonFormat, jsonReader, jsonWriter}
 import spray.json.DefaultJsonProtocol._
+import spray.json.RootJsonFormat
 
 import java.time.Instant
 

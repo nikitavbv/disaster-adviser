@@ -1,22 +1,18 @@
 package com.nikitavbv.disaster
 
-import notifcenter.{EonetNotificationCenter, PdcNotificationCenter}
-import model.DisasterFormat._
+import calendar.GoogleCalendarClient
 import model.WebSocketMessageFormat._
+import model._
+import notifcenter.{EonetNotificationCenter, PdcNotificationCenter}
 
 import akka.NotUsed
 import akka.actor.ActorSystem
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.{Http, server}
-import akka.stream.Attributes
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.nikitavbv.disaster.calendar.GoogleCalendarClient
-import com.nikitavbv.disaster.model.{CalendarEventMessage, Disaster, EventSafetyLevel, Location, LocationParser, WebSocketMessage, WebSocketMessageWithAction}
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import spray.json.DefaultJsonProtocol._
+import akka.http.scaladsl.{Http, server}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import spray.json._
 
 import scala.collection.mutable
@@ -36,16 +32,6 @@ object Application {
     PdcNotificationCenter.monitorEvents().map(_.toDisaster)
   ).reduce((a, b) => a merge b)
 
-  val port = 8080
-
-  val routes: server.Route = get {
-    concat(
-      path("ws") {
-        handleWebSocketMessages(handleWebsocket())
-      }
-    )
-  }
-
   def persistedDisastersSource: Source[Disaster, NotUsed] = Source.fromIterator(() => persistedDisasters.iterator)
 
   def allDisasters: Source[Disaster, NotUsed] = persistedDisastersSource merge disasterSource
@@ -58,6 +44,16 @@ object Application {
     .filter(disaster => disaster.locationCluster == point._1)
     .map(_.center)
     .reduce((a, b) => a centerBetween b))
+
+  val port = 8080
+
+  val routes: server.Route = get {
+    concat(
+      path("ws") {
+        handleWebSocketMessages(handleWebsocket())
+      }
+    )
+  }
 
   def handleWebsocket(): Flow[Message, Message, Any] = {
     val hotPointsSource = Source.tick(
